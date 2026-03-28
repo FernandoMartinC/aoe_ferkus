@@ -1,31 +1,31 @@
 // =============================================
 // api/cron.js
-// Recibe los datos desde el navegador y los guarda en Upstash KV
 // =============================================
 
-const KV_URL   = () => process.env.KV_REST_API_URL;
-const KV_TOKEN = () => process.env.KV_REST_API_TOKEN;
-
 async function kvGet(key) {
-  const res  = await fetch(`${KV_URL()}/get/${key}`, {
-    headers: { Authorization: `Bearer ${KV_TOKEN()}` }
+  const res  = await fetch(`${process.env.KV_REST_API_URL}/get/${key}`, {
+    headers: { Authorization: `Bearer ${process.env.KV_REST_API_TOKEN}` }
   });
   const json = await res.json();
-  if (!json.result) return null;
-  try { return JSON.parse(json.result); } catch { return null; }
+  console.log("kvGet raw result:", JSON.stringify(json.result).slice(0, 100));
+  if (!json.result) return [];
+  try { return JSON.parse(json.result); } catch { return []; }
 }
 
 async function kvSet(key, value) {
-  // Upstash REST: POST /set/<key> con el valor como body JSON
-  const res = await fetch(`${KV_URL()}/set/${key}`, {
+  // Upstash REST: body debe ser [value_as_string]
+  const body = [JSON.stringify(value)];
+  const res  = await fetch(`${process.env.KV_REST_API_URL}/set/${key}`, {
     method:  "POST",
     headers: {
-      Authorization:  `Bearer ${KV_TOKEN()}`,
+      Authorization:  `Bearer ${process.env.KV_REST_API_TOKEN}`,
       "Content-Type": "application/json"
     },
-    body: JSON.stringify(JSON.stringify(value)) // un solo nivel de stringify
+    body: JSON.stringify(body)
   });
-  return res.json();
+  const json = await res.json();
+  console.log("kvSet response:", JSON.stringify(json));
+  return json;
 }
 
 export default async function handler(req, res) {
@@ -43,7 +43,6 @@ export default async function handler(req, res) {
 
   const { registros, limpiar } = req.body;
 
-  // Opción de limpieza total
   if (limpiar) {
     await kvSet("elo_history", []);
     return res.status(200).json({ ok: true, mensaje: "Base de datos limpiada" });
@@ -54,10 +53,9 @@ export default async function handler(req, res) {
   }
 
   const fechaHoy = new Date().toISOString().slice(0, 10);
-  let historial  = await kvGet("elo_history") || [];
+  let historial  = await kvGet("elo_history");
   if (!Array.isArray(historial)) historial = [];
 
-  // Reemplazar entradas de hoy con las nuevas
   historial = historial.filter(r => r.fecha !== fechaHoy);
   historial = [...historial, ...registros];
 
