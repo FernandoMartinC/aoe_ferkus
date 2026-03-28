@@ -7,25 +7,20 @@ async function kvGet(key) {
     headers: { Authorization: `Bearer ${process.env.KV_REST_API_TOKEN}` }
   });
   const json = await res.json();
-  console.log("kvGet raw result:", JSON.stringify(json.result).slice(0, 100));
   if (!json.result) return [];
   try { return JSON.parse(json.result); } catch { return []; }
 }
 
 async function kvSet(key, value) {
-  // Upstash REST: body debe ser [value_as_string]
-  const body = [JSON.stringify(value)];
-  const res  = await fetch(`${process.env.KV_REST_API_URL}/set/${key}`, {
+  const res = await fetch(`${process.env.KV_REST_API_URL}/set/${key}`, {
     method:  "POST",
     headers: {
       Authorization:  `Bearer ${process.env.KV_REST_API_TOKEN}`,
       "Content-Type": "application/json"
     },
-    body: JSON.stringify(body)
+    body: JSON.stringify([JSON.stringify(value)])
   });
-  const json = await res.json();
-  console.log("kvSet response:", JSON.stringify(json));
-  return json;
+  return res.json();
 }
 
 export default async function handler(req, res) {
@@ -41,8 +36,9 @@ export default async function handler(req, res) {
     return res.status(405).json({ error: "Método no permitido" });
   }
 
-  const { registros, limpiar } = req.body;
+  const { registros, limpiar, migrar } = req.body;
 
+  // Limpiar todo
   if (limpiar) {
     await kvSet("elo_history", []);
     return res.status(200).json({ ok: true, mensaje: "Base de datos limpiada" });
@@ -52,15 +48,21 @@ export default async function handler(req, res) {
     return res.status(400).json({ error: "No se recibieron registros" });
   }
 
-  const fechaHoy = new Date().toISOString().slice(0, 10);
-  let historial  = await kvGet("elo_history");
+  let historial = await kvGet("elo_history");
   if (!Array.isArray(historial)) historial = [];
 
-  historial = historial.filter(r => r.fecha !== fechaHoy);
-  historial = [...historial, ...registros];
+  if (migrar) {
+    // Modo migración: agregar sin filtrar por fecha
+    historial = [...historial, ...registros];
+  } else {
+    // Modo normal: reemplazar entradas de hoy
+    const fechaHoy = new Date().toISOString().slice(0, 10);
+    historial = historial.filter(r => r.fecha !== fechaHoy);
+    historial = [...historial, ...registros];
+  }
 
   await kvSet("elo_history", historial);
 
-  console.log(`✅ Guardados ${registros.length} registros para ${fechaHoy}`);
-  return res.status(200).json({ ok: true, fecha: fechaHoy, registros: registros.length });
+  console.log(`✅ Guardados ${registros.length} registros (migrar=${!!migrar})`);
+  return res.status(200).json({ ok: true, registros: registros.length });
 }
