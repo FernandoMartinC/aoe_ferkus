@@ -1,6 +1,6 @@
 // =============================================
 // api/cron.js
-// Corre automáticamente cada hora (configurado en vercel.json)
+// Corre automáticamente cada día a las 8am UTC (configurado en vercel.json)
 // Busca el ELO de cada jugador y lo guarda en la base de datos
 // =============================================
 
@@ -22,9 +22,6 @@ const MODOS = [
   { id: 3, nombre: "1v1" }
 ];
 
-// -----------------------------------
-// Helpers para leer/escribir en la base de datos (Vercel KV)
-// -----------------------------------
 async function kvGet(key) {
   const res = await fetch(`${process.env.KV_REST_API_URL}/get/${key}`, {
     headers: { Authorization: `Bearer ${process.env.KV_REST_API_TOKEN}` }
@@ -44,29 +41,25 @@ async function kvSet(key, value) {
   });
 }
 
-// -----------------------------------
-// Función principal
-// -----------------------------------
 export default async function handler(req, res) {
-
-  // Seguridad: solo Vercel puede llamar a este endpoint
   if (req.headers["authorization"] !== `Bearer ${process.env.CRON_SECRET}`) {
     return res.status(401).json({ error: "No autorizado" });
   }
 
-  const fechaHoy = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+  const fechaHoy = new Date().toISOString().slice(0, 10);
   const nuevosRegistros = [];
+  const errores = [];
 
-  // 🔄 Buscar ELO de cada jugador en cada modo
   for (const steamId of PLAYERS) {
     for (const modo of MODOS) {
       const url = `https://data.aoe2companion.com/api/nightbot/rank?leaderboard_id=${modo.id}&steam_id=${encodeURIComponent(steamId)}`;
-      
+
       try {
         const response = await fetch(url);
         let texto = (await response.text()).trim().replace(/^"+|"+$/g, "");
 
-        // Parsear el texto de la API
+        console.log(`[${steamId}][${modo.nombre}] status=${response.status} texto="${texto.slice(0, 150)}"`);
+
         const match = texto.match(
           /^(?:.*?\s)?(.+?) \((\d+)\) Rank #(\d+), has played (\d+) games with a (-?\d+)% winrate, (-?\d+) streak, and (\d+) drops/
         );
@@ -74,34 +67,28 @@ export default async function handler(req, res) {
         if (match) {
           const [, nombre, elo, rank, games, winrate, streak, drops] = match;
           nuevosRegistros.push({
-            fecha:   fechaHoy,
-            steamId, nombre,
-            modo:    modo.nombre,
-            elo:     Number(elo),
-            rank:    Number(rank),
-            games:   Number(games),
-            winrate: Number(winrate),
-            streak:  Number(streak),
-            drops:   Number(drops)
+            fecha: fechaHoy, steamId, nombre,
+            modo: modo.nombre,
+            elo: Number(elo), rank: Number(rank),
+            games: Number(games), winrate: Number(winrate),
+            streak: Number(streak), drops: Number(drops)
           });
+        } else {
+          console.log(`[${steamId}][${modo.nombre}] NO MATCH - texto: "${texto}"`);
+          errores.push({ steamId, modo: modo.nombre, texto: texto.slice(0, 200) });
         }
-
       } catch (e) {
-        console.error(`Error fetching ${steamId} (${modo.nombre}):`, e.message);
+        console.error(`Error ${steamId} (${modo.nombre}):`, e.message);
+        errores.push({ steamId, modo: modo.nombre, error: e.message });
       }
     }
   }
 
-  // 📦 Cargar historial existente
   let historial = await kvGet("elo_history") || [];
-
-  // Reemplazar entradas de hoy con los datos frescos
   historial = historial.filter(r => r.fecha !== fechaHoy);
   historial = [...historial, ...nuevosRegistros];
-
-  // 💾 Guardar historial actualizado
   await kvSet("elo_history", historial);
 
   console.log(`✅ Actualizado: ${nuevosRegistros.length} registros para ${fechaHoy}`);
-  return res.status(200).json({ ok: true, fecha: fechaHoy, registros: nuevosRegistros.length });
+  return res.status(200).json({ ok: true, fecha: fechaHoy, registros: nuevosRegistros.length, errores });
 }
