@@ -1,50 +1,339 @@
-body {
-    font-family: Arial, sans-serif;
-    padding: 20px;
-  }
-  
-  table {
-    border-collapse: collapse;
-    width: 100%;
-    margin-bottom: 30px;
-  }
-  
-  th, td {
-    border: 1px solid #ddd;
-    padding: 8px;
-  }
-  
-  th {
-    background-color: #f2f2f2;
-    text-align: left;
-  }
-  
-  tr:nth-child(even) {
-    background-color: #fafafa;
-  }
-  
-  h2 {
-    margin-top: 40px;
-  }
+/* =============================================
+   AOE2 Dashboard — Dark Medieval Theme
+   ============================================= */
 
-  select {
-    padding: 6px;
-    font-size: 14px;
-  }
-  
-  table {
-    border-collapse: collapse;
-    width: 100%;
-    margin-bottom: 30px;
-  }
-  
-  th {
-    background: #f3f4f6;
-  }
-  
-  td, th {
-    padding: 6px 10px;
-    text-align: center;
-  }
-  
-  
+:root {
+  --bg-dark:       #0d0c0a;
+  --bg-card:       #161410;
+  --bg-card-hover: #1e1c18;
+  --border:        #3a2e1e;
+  --border-glow:   #8a6a2e;
+  --gold:          #c9963a;
+  --gold-light:    #e8b85c;
+  --gold-dim:      #6b4e1f;
+  --text-primary:  #e8dcc8;
+  --text-muted:    #8a7d6a;
+  --text-heading:  #f0d898;
+  --accent-red:    #8b2a2a;
+  --accent-green:  #2a5a2a;
+  --shadow:        0 4px 24px rgba(0,0,0,0.7);
+  --shadow-gold:   0 0 20px rgba(201,150,58,0.15);
+}
+
+/* ---------- Reset & Base ---------- */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+body {
+  background-color: var(--bg-dark);
+  background-image:
+    radial-gradient(ellipse at 20% 0%, rgba(138,106,46,0.08) 0%, transparent 60%),
+    radial-gradient(ellipse at 80% 100%, rgba(138,106,46,0.05) 0%, transparent 60%),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='80' height='80'%3E%3Crect width='80' height='80' fill='none'/%3E%3Cpath d='M0 0h80v80H0z' fill='none' stroke='%233a2e1e' stroke-width='0.3' opacity='0.4'/%3E%3C/svg%3E");
+  color: var(--text-primary);
+  font-family: 'Crimson Text', Georgia, serif;
+  font-size: 16px;
+  line-height: 1.6;
+  min-height: 100vh;
+}
+
+/* ---------- Layout ---------- */
+.page-wrapper {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 40px 24px 60px;
+}
+
+/* ---------- Header ---------- */
+.site-header {
+  text-align: center;
+  padding: 48px 24px 40px;
+  margin-bottom: 48px;
+  position: relative;
+}
+
+.site-header::after {
+  content: '';
+  display: block;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--gold), var(--gold-light), var(--gold), transparent);
+  margin-top: 28px;
+  opacity: 0.7;
+}
+
+.site-header h1 {
+  font-family: 'Cinzel', serif;
+  font-size: clamp(2rem, 5vw, 3.2rem);
+  font-weight: 700;
+  color: var(--text-heading);
+  letter-spacing: 0.08em;
+  text-shadow: 0 0 40px rgba(201,150,58,0.3), 0 2px 4px rgba(0,0,0,0.8);
+  margin: 8px 0 10px;
+}
+
+.header-subtitle {
+  font-family: 'Crimson Text', serif;
+  font-style: italic;
+  font-size: 1.1rem;
+  color: var(--text-muted);
+  letter-spacing: 0.05em;
+}
+
+.header-ornament {
+  font-size: 1.4rem;
+  color: var(--gold);
+  opacity: 0.7;
+  display: inline-block;
+}
+
+/* ---------- Section Blocks ---------- */
+.section-block {
+  background: var(--bg-card);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 32px 28px;
+  margin-bottom: 32px;
+  box-shadow: var(--shadow), var(--shadow-gold);
+  position: relative;
+  overflow: hidden;
+}
+
+.section-block::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0;
+  height: 2px;
+  background: linear-gradient(90deg, transparent, var(--gold-dim), var(--gold), var(--gold-dim), transparent);
+}
+
+.section-block h2 {
+  font-family: 'Cinzel', serif;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: var(--text-heading);
+  letter-spacing: 0.06em;
+  margin-bottom: 24px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.section-icon {
+  font-size: 1.1rem;
+  opacity: 0.85;
+}
+
+/* ---------- Filters ---------- */
+.filters-bar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 24px;
+  align-items: flex-start;
+  margin-bottom: 28px;
+  padding: 20px;
+  background: rgba(0,0,0,0.25);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+}
+
+.filter-group {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.filter-label {
+  font-family: 'Cinzel', serif;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--gold);
+  opacity: 0.9;
+}
+
+#checkbox-usuarios {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+#checkbox-usuarios label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.95rem;
+  color: var(--text-primary);
+  cursor: pointer;
+  padding: 4px 10px;
+  border: 1px solid var(--border);
+  border-radius: 2px;
+  background: rgba(255,255,255,0.03);
+  transition: border-color 0.2s, background 0.2s;
+}
+
+#checkbox-usuarios label:hover {
+  border-color: var(--gold-dim);
+  background: rgba(201,150,58,0.07);
+}
+
+#checkbox-usuarios input[type=checkbox] {
+  accent-color: var(--gold);
+  width: 14px;
+  height: 14px;
+  cursor: pointer;
+}
+
+select {
+  appearance: none;
+  background: var(--bg-dark);
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+  padding: 7px 32px 7px 12px;
+  font-family: 'Crimson Text', serif;
+  font-size: 1rem;
+  border-radius: 2px;
+  cursor: pointer;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='10' height='6'%3E%3Cpath d='M0 0l5 6 5-6z' fill='%238a6a2e'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+  transition: border-color 0.2s;
+}
+
+select:hover, select:focus {
+  border-color: var(--gold-dim);
+  outline: none;
+}
+
+/* ---------- Date Range ---------- */
+.date-range {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px;
+}
+
+.date-range label {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 0.95rem;
+  color: var(--text-muted);
+}
+
+input[type=date] {
+  background: var(--bg-dark);
+  border: 1px solid var(--border);
+  color: var(--text-primary);
+  padding: 6px 10px;
+  font-family: 'Crimson Text', serif;
+  font-size: 0.95rem;
+  border-radius: 2px;
+  transition: border-color 0.2s;
+}
+
+input[type=date]:focus {
+  outline: none;
+  border-color: var(--gold-dim);
+}
+
+input[type=date]::-webkit-calendar-picker-indicator {
+  filter: invert(0.7) sepia(1) saturate(2) hue-rotate(5deg);
+  cursor: pointer;
+}
+
+button#filtrar-fechas {
+  background: transparent;
+  border: 1px solid var(--gold-dim);
+  color: var(--gold-light);
+  font-family: 'Cinzel', serif;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  padding: 7px 18px;
+  border-radius: 2px;
+  cursor: pointer;
+  transition: background 0.2s, border-color 0.2s, color 0.2s;
+}
+
+button#filtrar-fechas:hover {
+  background: rgba(201,150,58,0.12);
+  border-color: var(--gold);
+  color: var(--gold-light);
+}
+
+/* ---------- Chart ---------- */
+.chart-container {
+  background: rgba(0,0,0,0.2);
+  border: 1px solid var(--border);
+  border-radius: 4px;
+  padding: 20px;
+}
+
+/* ---------- Tables ---------- */
+.table-wrapper {
+  overflow-x: auto;
+  border-radius: 4px;
+}
+
+table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 0.95rem;
+}
+
+thead tr {
+  background: rgba(201,150,58,0.08);
+  border-bottom: 1px solid var(--gold-dim);
+}
+
+th {
+  font-family: 'Cinzel', serif;
+  font-size: 0.7rem;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+  color: var(--gold);
+  padding: 12px 14px;
+  text-align: left;
+  white-space: nowrap;
+}
+
+td {
+  padding: 10px 14px;
+  border-bottom: 1px solid rgba(58,46,30,0.5);
+  color: var(--text-primary);
+  text-align: left;
+}
+
+tbody tr {
+  transition: background 0.15s;
+}
+
+tbody tr:hover {
+  background: rgba(201,150,58,0.05);
+}
+
+tbody tr:last-child td {
+  border-bottom: none;
+}
+
+/* ---------- Footer ---------- */
+.site-footer {
+  text-align: center;
+  padding: 32px 0 8px;
+  font-family: 'Cinzel', serif;
+  font-size: 0.75rem;
+  letter-spacing: 0.15em;
+  color: var(--gold-dim);
+  opacity: 0.7;
+}
+
+/* ---------- Responsive ---------- */
+@media (max-width: 640px) {
+  .section-block { padding: 20px 16px; }
+  .filters-bar { gap: 16px; }
+  th, td { padding: 8px 10px; }
+}

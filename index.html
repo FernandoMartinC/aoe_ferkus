@@ -2,42 +2,78 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Dashboard AOE2</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=MedievalSharp&family=Cinzel:wght@400;600;700&family=Crimson+Text:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
 </head>
 <body>
 
-<h1>Dashboard de datos</h1>
-    <h2>Evolución de ELO</h2>
+  <div class="page-wrapper">
 
-    <div id="usuarios-container">
-        <label style="margin-left:20px">
-        <strong>Usuarios:</strong>
-        <div id="checkbox-usuarios"></div>
+    <header class="site-header">
+      <div class="header-ornament">⚔</div>
+      <h1>Dashboard de Datos</h1>
+      <p class="header-subtitle">Age of Empires II — Seguimiento de ELO</p>
+      <div class="header-ornament">⚔</div>
+    </header>
+
+    <main>
+
+      <section class="section-block">
+        <h2><span class="section-icon">📈</span> Evolución de ELO</h2>
+
+        <div class="filters-bar">
+          <div class="filter-group">
+            <span class="filter-label">Usuarios</span>
+            <div id="checkbox-usuarios"></div>
+          </div>
+
+          <div class="filter-group">
+            <span class="filter-label">Modo</span>
+            <select id="select-modo"></select>
+          </div>
+
+          <div class="filter-group">
+            <span class="filter-label">Fechas</span>
+            <div class="date-range">
+              <label>Desde <input type="date" id="fecha-desde"></label>
+              <label>Hasta <input type="date" id="fecha-hasta"></label>
+              <button id="filtrar-fechas">Aplicar</button>
+            </div>
+          </div>
         </div>
-        <label style="margin-left:20px">
-        <strong>Modo:</strong>
-        <select id="select-modo"></select>
+
+        <div class="chart-container">
+          <canvas id="eloChart" height="100"></canvas>
         </div>
-        <label style="margin-left:20px">
-        <strong>Fechas:</strong>
-        <label>Desde: <input type="date" id="fecha-desde"></label>
-        <label>Hasta: <input type="date" id="fecha-hasta"></label>
-        <button id="filtrar-fechas">Aplicar filtro</button>
+      </section>
 
-        <br><br>
-    
-    <canvas id="eloChart" height="100"></canvas>
- 
-    <h2>Datos de ayer</h2>
-    <table id="tabla-ayer"></table>
+      <section class="section-block">
+        <h2><span class="section-icon">🗡</span> Datos de Ayer</h2>
+        <div class="table-wrapper">
+          <table id="tabla-ayer"></table>
+        </div>
+      </section>
 
-    <h2>Resto de los datos</h2>
-    <table id="tabla-historico"></table>
+      <section class="section-block">
+        <h2><span class="section-icon">📜</span> Histórico Completo</h2>
+        <div class="table-wrapper">
+          <table id="tabla-historico"></table>
+        </div>
+      </section>
 
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script src="script.js"></script>    
-  
-  </body>
-  
+    </main>
+
+    <footer class="site-footer">
+      <span>⚔ AOE2 ELO Tracker ⚔</span>
+    </footer>
+
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="script.js"></script>
+</body>
 </html>

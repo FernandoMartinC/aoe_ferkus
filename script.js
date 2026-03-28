@@ -228,7 +228,7 @@ function actualizarGrafico() {
     return {
       label: usuario,
       data: fechas.map(f => ({ x: f, y: mapa[f] !== undefined ? mapa[f] : null })),
-      borderColor: `hsl(${i * 60}, 70%, 50%)`,
+      borderColor: ['#e8b85c','#e05555','#5fafef','#7dda7d','#c47de8','#ef9d5f'][i % 6],
       tension: 0.2,
       spanGaps: true
     };
@@ -267,3 +267,8 @@ function renderizarGraficoComparativo(datasets) {
     }
   });
 }
+
+// Patch: dark theme defaults for Chart.js
+Chart.defaults.color = '#8a7d6a';
+Chart.defaults.borderColor = '#3a2e1e';
+Chart.defaults.font.family = "'Crimson Text', Georgia, serif";
