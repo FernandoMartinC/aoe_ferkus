@@ -1,68 +1,64 @@
+// =============================================
+// script.js — Dashboard AOE2
+// Lee los datos desde /api/data (Vercel KV)
+// =============================================
+
 let datosGlobales = [];
-let datosEncabezados = [];
 let chart = null;
+let fechaDesde = null;
+let fechaHasta = null;
 
 // 🚫 Usuarios a excluir
 const USUARIOS_EXCLUIDOS = ["error", "no match"];
 
-// 📍 URL del TSV de Google Sheets
-const url =
-  "https://docs.google.com/spreadsheets/d/e/2PACX-1vRtbgFPjJIN-U5CLK02VdIsBa3d_wxqTr7KGqqZT4q-tqBKGezw0rqKzVdHVh_o1HmvdmUHIIlW1oam/pub?gid=1528278724&single=true&output=tsv";
+// -----------------------------------
+// Cargar datos al iniciar
+// -----------------------------------
+cargarDatos();
 
-// 🔹 Variables de filtro de fechas
-let fechaDesde = null;
-let fechaHasta = null;
+// Auto-refresh cada 5 minutos
+setInterval(cargarDatos, 5 * 60 * 1000);
+
+async function cargarDatos() {
+  try {
+    mostrarCargando(true);
+    const res = await fetch("/api/data");
+    const { historial } = await res.json();
+
+    // Filtrar usuarios excluidos
+    datosGlobales = historial.filter(
+      d => !USUARIOS_EXCLUIDOS.includes((d.nombre || "").toLowerCase().trim())
+    );
+
+    cargarSelectores();
+    separarYRenderizarTablas();
+    actualizarGrafico();
+
+  } catch (err) {
+    console.error("Error cargando datos:", err);
+  } finally {
+    mostrarCargando(false);
+  }
+}
+
+function mostrarCargando(estado) {
+  const el = document.getElementById("loading-indicator");
+  if (el) el.style.display = estado ? "block" : "none";
+}
 
 // -----------------------------------
-// Leer y cargar dashboard
+// Filtro de fechas
 // -----------------------------------
-fetch(url)
-  .then((res) => res.text())
-  .then((tsv) => inicializarDashboard(tsv))
-  .catch((err) => console.error("Error cargando datos:", err));
-
-function inicializarDashboard(tsv) {
-  const filas = tsv.trim().split("\n");
-
-  // 1️⃣ Encabezados
-  const encabezadosOriginales = filas[0].split("\t");
-
-  // 2️⃣ Encontrar índice de "Texto crudo"
-  const indiceTextoCrudo = encabezadosOriginales.findIndex(h =>
-    h.trim().replace(/^"|"$/g, "").toLowerCase() === "texto crudo"
-  );
-
-  // 3️⃣ Encabezados sin "Texto crudo"
-  datosEncabezados = encabezadosOriginales.filter((_, i) => i !== indiceTextoCrudo);
-
-  // 4️⃣ Filas
-  const datos = filas.slice(1).map(f => f.split("\t"));
-
-  // 5️⃣ Filtrar usuarios excluidos y eliminar columna "Texto crudo"
-  datosGlobales = datos
-    .filter(d => {
-      const usuario = (d[2] || "").toLowerCase().trim();
-      return !USUARIOS_EXCLUIDOS.includes(usuario);
-    })
-    .map(d => d.filter((_, i) => i !== indiceTextoCrudo));
-
-  // 6️⃣ Inicializar selectores, tablas y gráfico
-  cargarSelectores();
-  separarYRenderizarTablas();
-  actualizarGrafico();
-
-  // 7️⃣ Filtro de fechas
+document.addEventListener("DOMContentLoaded", () => {
   document.getElementById("filtrar-fechas").addEventListener("click", () => {
     const desdeVal = document.getElementById("fecha-desde").value;
     const hastaVal = document.getElementById("fecha-hasta").value;
-
     fechaDesde = desdeVal ? new Date(desdeVal) : null;
     fechaHasta = hastaVal ? new Date(hastaVal) : null;
-
     separarYRenderizarTablas();
     actualizarGrafico();
   });
-}
+});
 
 // -----------------------------------
 // Selectores dinámicos
@@ -71,43 +67,42 @@ function cargarSelectores() {
   const contUsuarios = document.getElementById("checkbox-usuarios");
   const selectModo = document.getElementById("select-modo");
 
-  const usuarios = [...new Set(datosGlobales.map((d) => d[2]))];
-  const modos = [...new Set(datosGlobales.map((d) => d[3]))];
+  const usuarios = [...new Set(datosGlobales.map(d => d.nombre))];
+  const modos    = [...new Set(datosGlobales.map(d => d.modo))];
 
-  // usuarios (checkbox)
+  // Checkboxes de usuarios
   contUsuarios.innerHTML = "";
-  usuarios.forEach((u) => {
+  usuarios.forEach(u => {
     const label = document.createElement("label");
-    label.style.marginRight = "10px";
-
     const cb = document.createElement("input");
     cb.type = "checkbox";
     cb.value = u;
     cb.checked = true;
     cb.addEventListener("change", actualizarGrafico);
-
     label.appendChild(cb);
     label.append(" " + u);
     contUsuarios.appendChild(label);
   });
 
-  // modos (select)
+  // Select de modos
+  const modoActual = selectModo.value;
   selectModo.innerHTML = "";
-  modos.forEach((m) => {
+  modos.forEach(m => {
     const opt = document.createElement("option");
     opt.value = m;
     opt.textContent = m;
     selectModo.appendChild(opt);
   });
-
+  if (modoActual) selectModo.value = modoActual;
   selectModo.addEventListener("change", actualizarGrafico);
 }
 
 // -----------------------------------
-// Normalizar fechas
+// Normalizar fechas (evita bugs de timezone)
 // -----------------------------------
 function fechaSinTimezone(fechaStr) {
-  const f = fechaStr.trim().replace(/^"|"$/g, "");
+  if (!fechaStr) return new Date(NaN);
+  const f = String(fechaStr).trim();
   if (f.includes("-")) {
     const [y, m, d] = f.split("-").map(Number);
     return new Date(y, m - 1, d, 12, 0, 0);
@@ -124,61 +119,64 @@ function fechaISO(fecha) {
 }
 
 // -----------------------------------
-// Tablas: última fecha disponible + histórico completo
+// Tablas
 // -----------------------------------
 function separarYRenderizarTablas() {
   if (!datosGlobales.length) return;
 
-  // 🔹 Filtrar por fechas si aplica
   let datosFiltrados = [...datosGlobales];
   if (fechaDesde || fechaHasta) {
     datosFiltrados = datosFiltrados.filter(d => {
-      const f = fechaSinTimezone(d[0]);
+      const f = fechaSinTimezone(d.fecha);
       if (fechaDesde && f < fechaDesde) return false;
       if (fechaHasta && f > fechaHasta) return false;
       return true;
     });
   }
 
-  const todasFechas = datosFiltrados.map(d => fechaSinTimezone(d[0])).filter(f => !isNaN(f.getTime()));
+  const todasFechas = datosFiltrados.map(d => fechaSinTimezone(d.fecha)).filter(f => !isNaN(f));
+  if (!todasFechas.length) return;
+
   const fechaMax = todasFechas.reduce((a, b) => (a > b ? a : b), new Date(0));
   const fechaMaxStr = fechaISO(fechaMax);
 
-  const datosUltimoDia = datosFiltrados.filter(
-    d => fechaISO(fechaSinTimezone(d[0])) === fechaMaxStr
-  );
-
-  const datosHistorico = [...datosFiltrados];
-
-  renderizarTabla(datosUltimoDia, "tabla-ayer");
-  renderizarTabla(datosHistorico, "tabla-historico");
+  renderizarTabla(datosFiltrados.filter(d => fechaISO(fechaSinTimezone(d.fecha)) === fechaMaxStr), "tabla-ayer");
+  renderizarTabla(datosFiltrados, "tabla-historico");
 }
 
-// -----------------------------------
-// Renderizado de tablas (sin columna "Texto crudo")
-// -----------------------------------
 function renderizarTabla(datos, contenedorId) {
   const cont = document.getElementById(contenedorId);
-
   if (!datos.length) {
-    cont.innerHTML = "<p>No hay datos</p>";
+    cont.innerHTML = "<p style='padding:16px;color:var(--text-muted)'>No hay datos para mostrar.</p>";
     return;
   }
 
-  // 🔹 Filtrar columna "Texto crudo" al renderizar
-  const encabezadosFiltrados = datosEncabezados
-    .map(h => h.trim().replace(/^"|"$/g, "").toLowerCase())
-    .map((h, i) => ({ h, idx: i }))
-    .filter(e => e.h !== "texto crudo");
+  // Columnas a mostrar (en orden)
+  const columnas = [
+    { key: "fecha",   label: "Fecha"    },
+    { key: "nombre",  label: "Jugador"  },
+    { key: "modo",    label: "Modo"     },
+    { key: "elo",     label: "ELO"      },
+    { key: "rank",    label: "Rank"     },
+    { key: "games",   label: "Partidas" },
+    { key: "winrate", label: "Winrate"  },
+    { key: "streak",  label: "Racha"    },
+    { key: "drops",   label: "Drops"    }
+  ];
 
-  let html = "<table border='1' cellpadding='6'><thead><tr>";
-  encabezadosFiltrados.forEach(e => (html += `<th>${datosEncabezados[e.idx]}</th>`));
+  let html = "<table><thead><tr>";
+  columnas.forEach(c => (html += `<th>${c.label}</th>`));
   html += "</tr></thead><tbody>";
 
   datos.forEach(fila => {
-    const filaFiltrada = encabezadosFiltrados.map(e => fila[e.idx]);
     html += "<tr>";
-    filaFiltrada.forEach(c => (html += `<td>${c}</td>`));
+    columnas.forEach(c => {
+      let val = fila[c.key] ?? "-";
+      if (c.key === "winrate") val = val + "%";
+      if (c.key === "streak" && val > 0) val = "▲ " + val;
+      if (c.key === "streak" && val < 0) val = "▼ " + val;
+      html += `<td>${val}</td>`;
+    });
     html += "</tr>";
   });
 
@@ -187,29 +185,25 @@ function renderizarTabla(datos, contenedorId) {
 }
 
 // -----------------------------------
-// Gráfico de líneas con filtro de fechas
+// Gráfico de ELO
 // -----------------------------------
 function actualizarGrafico() {
   const checkboxes = document.querySelectorAll("#checkbox-usuarios input[type=checkbox]");
-  const usuariosSeleccionados = Array.from(checkboxes)
-    .filter(cb => cb.checked)
-    .map(cb => cb.value);
-
+  const usuariosSeleccionados = Array.from(checkboxes).filter(cb => cb.checked).map(cb => cb.value);
   if (!usuariosSeleccionados.length) return;
 
   const modo = document.getElementById("select-modo").value;
+  const colores = ["#e8b85c", "#e05555", "#5fafef", "#7dda7d", "#c47de8", "#ef9d5f", "#5fd4d4", "#e8a0c4"];
 
   const fechasSet = new Set();
   datosGlobales.forEach(d => {
-    const f = fechaSinTimezone(d[0]);
+    const f = fechaSinTimezone(d.fecha);
     if (
-      usuariosSeleccionados.includes(d[2]) &&
-      d[3] === modo &&
+      usuariosSeleccionados.includes(d.nombre) &&
+      d.modo === modo &&
       (!fechaDesde || f >= fechaDesde) &&
       (!fechaHasta || f <= fechaHasta)
-    ) {
-      fechasSet.add(fechaISO(f));
-    }
+    ) fechasSet.add(fechaISO(f));
   });
 
   const fechas = Array.from(fechasSet).sort((a, b) => new Date(a) - new Date(b));
@@ -217,30 +211,37 @@ function actualizarGrafico() {
   const datasets = usuariosSeleccionados.map((usuario, i) => {
     const mapa = {};
     datosGlobales
-      .filter(d => d[2] === usuario && d[3] === modo)
+      .filter(d => d.nombre === usuario && d.modo === modo)
       .forEach(d => {
-        const f = fechaSinTimezone(d[0]);
+        const f = fechaSinTimezone(d.fecha);
         if ((!fechaDesde || f >= fechaDesde) && (!fechaHasta || f <= fechaHasta)) {
-          mapa[fechaISO(f)] = Number(d[4]);
+          mapa[fechaISO(f)] = d.elo;
         }
       });
 
     return {
       label: usuario,
       data: fechas.map(f => ({ x: f, y: mapa[f] !== undefined ? mapa[f] : null })),
-      borderColor: ['#e8b85c','#e05555','#5fafef','#7dda7d','#c47de8','#ef9d5f'][i % 6],
-      tension: 0.2,
-      spanGaps: true
+      borderColor: colores[i % colores.length],
+      backgroundColor: colores[i % colores.length] + "22",
+      tension: 0.3,
+      spanGaps: true,
+      pointRadius: 3,
+      pointHoverRadius: 6
     };
   });
 
-  renderizarGraficoComparativo(datasets);
+  renderizarGrafico(datasets);
 }
 
-function renderizarGraficoComparativo(datasets) {
+function renderizarGrafico(datasets) {
   const ctx = document.getElementById("eloChart");
-
   if (chart) chart.destroy();
+
+  // Parche de estilo oscuro para Chart.js
+  Chart.defaults.color = "#8a7d6a";
+  Chart.defaults.borderColor = "#3a2e1e";
+  Chart.defaults.font.family = "'Crimson Text', Georgia, serif";
 
   chart = new Chart(ctx, {
     type: "line",
@@ -267,8 +268,3 @@ function renderizarGraficoComparativo(datasets) {
     }
   });
 }
-
-// Patch: dark theme defaults for Chart.js
-Chart.defaults.color = '#8a7d6a';
-Chart.defaults.borderColor = '#3a2e1e';
-Chart.defaults.font.family = "'Crimson Text', Georgia, serif";
