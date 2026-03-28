@@ -6,12 +6,8 @@
   <title>Dashboard AOE2</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=MedievalSharp&family=Cinzel:wght@400;600;700&family=Crimson+Text:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Crimson+Text:ital,wght@0,400;0,600;1,400&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="styles.css">
-  <script>
-    window.va = window.va || function () { (window.vaq = window.vaq || []).push(arguments); };
-  </script>
-  <script defer src="/_vercel/insights/script.js"></script>
 </head>
 <body>
 
@@ -26,20 +22,26 @@
 
     <main>
 
+      <!-- CARDS DE JUGADORES -->
       <section class="section-block">
-        <h2><span class="section-icon">📈</span> Evolución de ELO</h2>
-
-        <div class="filters-bar">
-          <div class="filter-group">
-            <span class="filter-label">Usuarios</span>
-            <div id="checkbox-usuarios"></div>
-          </div>
-
+        <h2><span class="section-icon">🏆</span> Ranking de Jugadores</h2>
+        <div class="filters-bar filters-bar--inline">
           <div class="filter-group">
             <span class="filter-label">Modo</span>
             <select id="select-modo"></select>
           </div>
+        </div>
+        <div id="cards-container" class="cards-grid"></div>
+      </section>
 
+      <!-- GRÁFICO -->
+      <section class="section-block">
+        <h2><span class="section-icon">📈</span> Evolución de ELO</h2>
+        <div class="filters-bar">
+          <div class="filter-group">
+            <span class="filter-label">Jugadores</span>
+            <div id="checkbox-usuarios"></div>
+          </div>
           <div class="filter-group">
             <span class="filter-label">Fechas</span>
             <div class="date-range">
@@ -49,19 +51,20 @@
             </div>
           </div>
         </div>
-
         <div class="chart-container">
           <canvas id="eloChart" height="100"></canvas>
         </div>
       </section>
 
+      <!-- TABLA ÚLTIMO DÍA -->
       <section class="section-block">
-        <h2><span class="section-icon">🗡</span> Datos de Ayer</h2>
+        <h2><span class="section-icon">🗡</span> Datos de Hoy</h2>
         <div class="table-wrapper">
           <table id="tabla-ayer"></table>
         </div>
       </section>
 
+      <!-- TABLA HISTÓRICA -->
       <section class="section-block">
         <h2><span class="section-icon">📜</span> Histórico Completo</h2>
         <div class="table-wrapper">
