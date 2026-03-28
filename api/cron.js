@@ -4,7 +4,6 @@
 // Busca el ELO de cada jugador y lo guarda en la base de datos
 // =============================================
 
-// 👥 Steam IDs de los jugadores
 const PLAYERS = [
   "76561198119543598",
   "76561198798890271",
@@ -16,11 +15,14 @@ const PLAYERS = [
   "76561199054256874"
 ];
 
-// 🎮 Modos de juego
 const MODOS = [
   { id: 4, nombre: "TG" },
   { id: 3, nombre: "1v1" }
 ];
+
+// ⏱ Esperar X milisegundos entre requests para no saturar la API
+const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
+const DELAY_MS = 1500; // 1.5 segundos entre cada request
 
 async function kvGet(key) {
   const res = await fetch(`${process.env.KV_REST_API_URL}/get/${key}`, {
@@ -55,6 +57,9 @@ export default async function handler(req, res) {
       const url = `https://data.aoe2companion.com/api/nightbot/rank?leaderboard_id=${modo.id}&steam_id=${encodeURIComponent(steamId)}`;
 
       try {
+        // ⏱ Esperar antes de cada request
+        await sleep(DELAY_MS);
+
         const response = await fetch(url);
         let texto = (await response.text()).trim().replace(/^"+|"+$/g, "");
 
@@ -77,6 +82,7 @@ export default async function handler(req, res) {
           console.log(`[${steamId}][${modo.nombre}] NO MATCH - texto: "${texto}"`);
           errores.push({ steamId, modo: modo.nombre, texto: texto.slice(0, 200) });
         }
+
       } catch (e) {
         console.error(`Error ${steamId} (${modo.nombre}):`, e.message);
         errores.push({ steamId, modo: modo.nombre, error: e.message });
