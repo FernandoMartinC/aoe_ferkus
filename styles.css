@@ -337,3 +337,18 @@ tbody tr:last-child td {
   .filters-bar { gap: 16px; }
   th, td { padding: 8px 10px; }
 }
+
+/* ---------- Banner de estado ---------- */
+.status-banner {
+  padding: 12px 20px;
+  margin-bottom: 20px;
+  border-radius: 4px;
+  font-family: 'Cinzel', serif;
+  font-size: 0.8rem;
+  letter-spacing: 0.08em;
+  text-align: center;
+  border: 1px solid;
+}
+.status-info    { color: var(--gold);      border-color: var(--gold-dim);   background: rgba(201,150,58,0.08); }
+.status-success { color: #7dda7d;          border-color: #2a5a2a;           background: rgba(42,90,42,0.15);   }
+.status-error   { color: #e05555;          border-color: #8b2a2a;           background: rgba(139,42,42,0.15);  }
