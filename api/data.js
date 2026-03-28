@@ -13,7 +13,10 @@ async function kvGet(key) {
 }
 
 export default async function handler(req, res) {
+  // Deshabilitar cache para siempre leer datos frescos
+  res.setHeader("Cache-Control", "no-store, no-cache, must-revalidate");
   res.setHeader("Access-Control-Allow-Origin", "*");
+
   const historial = await kvGet("elo_history") || [];
   return res.status(200).json({ historial: Array.isArray(historial) ? historial : [] });
 }
