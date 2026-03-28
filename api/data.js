@@ -8,13 +8,18 @@ async function kvGet(key) {
     headers: { Authorization: `Bearer ${process.env.KV_REST_API_TOKEN}` }
   });
   const data = await res.json();
-  return data.result ? JSON.parse(data.result) : null;
+  if (!data.result) return null;
+
+  // Deserializar recursivamente hasta obtener un array real
+  let value = data.result;
+  while (typeof value === "string") {
+    try { value = JSON.parse(value); } catch { break; }
+  }
+  return value;
 }
 
 export default async function handler(req, res) {
-  // Permitir acceso desde el navegador
   res.setHeader("Access-Control-Allow-Origin", "*");
-
   const historial = await kvGet("elo_history") || [];
   return res.status(200).json({ historial });
 }
