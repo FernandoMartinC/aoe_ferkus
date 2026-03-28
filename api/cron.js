@@ -1,7 +1,7 @@
 // =============================================
 // api/cron.js
-// Corre automáticamente cada día a las 8am UTC (configurado en vercel.json)
-// Busca el ELO de cada jugador y lo guarda en la base de datos
+// Corre automáticamente cada día a las 8am UTC
+// Usa la API oficial de Relic (creadores del juego)
 // =============================================
 
 const PLAYERS = [
@@ -15,14 +15,13 @@ const PLAYERS = [
   "76561199054256874"
 ];
 
+// leaderboard_id: 3 = 1v1 RM, 4 = Team RM
 const MODOS = [
-  { id: 4, nombre: "TG" },
-  { id: 3, nombre: "1v1" }
+  { id: 3, nombre: "1v1" },
+  { id: 4, nombre: "TG"  }
 ];
 
-// ⏱ Esperar X milisegundos entre requests para no saturar la API
-const sleep = (ms) => new Promise(resolve => setTimeout(resolve, ms));
-const DELAY_MS = 1500; // 1.5 segundos entre cada request
+const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
 async function kvGet(key) {
   const res = await fetch(`${process.env.KV_REST_API_URL}/get/${key}`, {
@@ -43,6 +42,53 @@ async function kvSet(key, value) {
   });
 }
 
+// Busca el ELO de un jugador en un modo via API de Relic
+async function fetchPlayerData(steamId, modo) {
+  const url = `https://aoe-api.reliclink.com/community/leaderboard/GetPersonalStat?title=age2&profile_ids=[${steamId}]`;
+
+  const res = await fetch(url, {
+    headers: {
+      "Accept": "application/json",
+      "User-Agent": "AOE2-Dashboard/1.0"
+    }
+  });
+
+  if (!res.ok) {
+    throw new Error(`HTTP ${res.status}`);
+  }
+
+  const data = await res.json();
+
+  // Buscar la entrada del leaderboard correcto
+  const statGroups = data?.statGroups?.[0];
+  const members = statGroups?.members;
+  const leaderboardStats = data?.leaderboardStats;
+
+  if (!members || !leaderboardStats) {
+    throw new Error("Formato inesperado de la API");
+  }
+
+  const nombre = members[0]?.alias || "Desconocido";
+
+  const stat = leaderboardStats.find(s => s.leaderboard_id === modo.id);
+
+  if (!stat) {
+    return null; // jugador no rankeado en este modo
+  }
+
+  return {
+    nombre,
+    elo:     stat.rating,
+    rank:    stat.rank,
+    games:   stat.wins + stat.losses,
+    winrate: stat.wins + stat.losses > 0
+               ? Math.round((stat.wins / (stat.wins + stat.losses)) * 100)
+               : 0,
+    streak:  stat.streak,
+    drops:   stat.drops ?? 0
+  };
+}
+
 export default async function handler(req, res) {
   if (req.headers["authorization"] !== `Bearer ${process.env.CRON_SECRET}`) {
     return res.status(401).json({ error: "No autorizado" });
@@ -53,40 +99,61 @@ export default async function handler(req, res) {
   const errores = [];
 
   for (const steamId of PLAYERS) {
-    for (const modo of MODOS) {
-      const url = `https://data.aoe2companion.com/api/nightbot/rank?leaderboard_id=${modo.id}&steam_id=${encodeURIComponent(steamId)}`;
+    try {
+      // Una sola llamada por jugador (trae todos los modos)
+      await sleep(500);
+      const url = `https://aoe-api.reliclink.com/community/leaderboard/GetPersonalStat?title=age2&profile_ids=[${steamId}]`;
 
-      try {
-        // ⏱ Esperar antes de cada request
-        await sleep(DELAY_MS);
+      const response = await fetch(url, {
+        headers: {
+          "Accept": "application/json",
+          "User-Agent": "AOE2-Dashboard/1.0"
+        }
+      });
 
-        const response = await fetch(url);
-        let texto = (await response.text()).trim().replace(/^"+|"+$/g, "");
+      console.log(`[${steamId}] status=${response.status}`);
 
-        console.log(`[${steamId}][${modo.nombre}] status=${response.status} texto="${texto.slice(0, 150)}"`);
+      if (!response.ok) {
+        errores.push({ steamId, error: `HTTP ${response.status}` });
+        continue;
+      }
 
-        const match = texto.match(
-          /^(?:.*?\s)?(.+?) \((\d+)\) Rank #(\d+), has played (\d+) games with a (-?\d+)% winrate, (-?\d+) streak, and (\d+) drops/
-        );
+      const data = await response.json();
+      const members = data?.statGroups?.[0]?.members;
+      const leaderboardStats = data?.leaderboardStats;
 
-        if (match) {
-          const [, nombre, elo, rank, games, winrate, streak, drops] = match;
-          nuevosRegistros.push({
-            fecha: fechaHoy, steamId, nombre,
-            modo: modo.nombre,
-            elo: Number(elo), rank: Number(rank),
-            games: Number(games), winrate: Number(winrate),
-            streak: Number(streak), drops: Number(drops)
-          });
-        } else {
-          console.log(`[${steamId}][${modo.nombre}] NO MATCH - texto: "${texto}"`);
-          errores.push({ steamId, modo: modo.nombre, texto: texto.slice(0, 200) });
+      if (!members || !leaderboardStats) {
+        errores.push({ steamId, error: "Formato inesperado", data: JSON.stringify(data).slice(0, 200) });
+        continue;
+      }
+
+      const nombre = members[0]?.alias || "Desconocido";
+      console.log(`[${steamId}] nombre=${nombre}, stats encontrados=${leaderboardStats.length}`);
+
+      for (const modo of MODOS) {
+        const stat = leaderboardStats.find(s => s.leaderboard_id === modo.id);
+        if (!stat) {
+          console.log(`[${steamId}] sin datos para modo ${modo.nombre}`);
+          continue;
         }
 
-      } catch (e) {
-        console.error(`Error ${steamId} (${modo.nombre}):`, e.message);
-        errores.push({ steamId, modo: modo.nombre, error: e.message });
+        const totalGames = (stat.wins || 0) + (stat.losses || 0);
+        nuevosRegistros.push({
+          fecha:   fechaHoy,
+          steamId, nombre,
+          modo:    modo.nombre,
+          elo:     stat.rating    || 0,
+          rank:    stat.rank      || 0,
+          games:   totalGames,
+          winrate: totalGames > 0 ? Math.round((stat.wins / totalGames) * 100) : 0,
+          streak:  stat.streak    || 0,
+          drops:   stat.drops     || 0
+        });
       }
+
+    } catch (e) {
+      console.error(`Error ${steamId}:`, e.message);
+      errores.push({ steamId, error: e.message });
     }
   }
 
@@ -95,6 +162,11 @@ export default async function handler(req, res) {
   historial = [...historial, ...nuevosRegistros];
   await kvSet("elo_history", historial);
 
-  console.log(`✅ Actualizado: ${nuevosRegistros.length} registros para ${fechaHoy}`);
-  return res.status(200).json({ ok: true, fecha: fechaHoy, registros: nuevosRegistros.length, errores });
+  console.log(`✅ ${nuevosRegistros.length} registros guardados para ${fechaHoy}`);
+  return res.status(200).json({
+    ok: true,
+    fecha: fechaHoy,
+    registros: nuevosRegistros.length,
+    errores
+  });
 }
